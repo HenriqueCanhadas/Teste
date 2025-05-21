@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Baixar Vídeo</title>
+</head>
+<body>
+    <h1>Baixar vídeo do YouTube</h1>
+
+    <form id="downloadForm">
+        {% csrf_token %}
+        <input type="text" id="video_url" name="video_url" placeholder="Cole o link do vídeo" required>
+        <button type="submit">Baixar</button>
+    </form>
+    <pre id="terminal" style="
+        background-color: black;
+        color: #00FF00;
+        padding: 15px;
+        height: 350px;
+        overflow-y: auto;
+        display: none;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 14px;
+        border: 2px solid #00FF00;
+        box-shadow: 0 0 10px #00FF00;
+        white-space: pre-wrap;
+    ">
+    </pre>
+
+    <div id="downloadLink"></div>
+
+    <script>
+    document.getElementById('downloadForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        const url = document.getElementById('video_url').value;
+        const terminal = document.getElementById('terminal');
+        const linkDiv = document.getElementById('downloadLink');
+        terminal.style.display = 'block';
+        terminal.innerHTML = '';
+        linkDiv.innerHTML = '';
+
+        const eventSource = new EventSource(`/videos/stream-download/?video_url=${encodeURIComponent(url)}`);
+
+        function appendLineWithEffect(line, color = "#00FF00") {
+            const lineElement = document.createElement("div");
+            lineElement.style.color = color;
+            lineElement.style.whiteSpace = "pre-wrap";
+            lineElement.style.marginBottom = "2px";
+            terminal.appendChild(lineElement);
+
+            let i = 0;
+            const typingSpeed = 10; // milissegundos por caractere
+
+            function typeChar() {
+                if (i < line.length) {
+                    lineElement.innerHTML += line.charAt(i);
+                    i++;
+                    setTimeout(typeChar, typingSpeed);
+                    terminal.scrollTop = terminal.scrollHeight;
+                }
+            }
+
+            typeChar();
+        }
+
+        eventSource.onmessage = function(e) {
+            const output = e.data;
+
+            if (output.startsWith("DONE::")) {
+                const filename = output.split("::")[1];
+                appendLineWithEffect("✅ Download finalizado!", "lightgreen");
+                linkDiv.innerHTML = `<a href="/videos/download/${filename}"><button>Download do vídeo</button></a>`;
+                eventSource.close();
+            } else if (output.startsWith("ERRO::")) {
+                const errorMsg = output.split("::")[1];
+                appendLineWithEffect("❌ ERRO: " + errorMsg, "red");
+                eventSource.close();
+            } else {
+                // Definir cor de linha com base no conteúdo
+                let color = "#00FF00"; // padrão neon
+
+                const lower = output.toLowerCase();
+                if (lower.includes("erro") || lower.includes("error")) {
+                    color = "red";
+                } else if (lower.includes("resolução detectada") || lower.includes("baixando")) {
+                    color = "lightgreen";
+                }
+
+                appendLineWithEffect(output, color);
+            }
+        };
+    });
+    </script>
+</body>
+</html>
