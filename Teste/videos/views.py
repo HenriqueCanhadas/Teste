@@ -64,9 +64,20 @@ def stream_download(request):
                 process = subprocess.Popen(download_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
                 for line in iter(process.stdout.readline, ''):
-                    yield f"data:{line.strip()}\n\n"
-                    time.sleep(0.05)
-
+                    line = line.strip()
+                    if "[download]" in line and "%" in line:
+                        match = re.search(r"(\d{1,3}\.\d)%", line)
+                        if match:
+                            percent = match.group(1)
+                            yield f"data:PROGRESS::{percent}\n\n"
+                    elif line.startswith("[Merger]"):
+                        yield f"data:MERGE::Iniciando junção do vídeo\n\n"
+                    elif "Destination:" in line:
+                        filename_match = re.search(r'Destination:.*\\(.+\.mp4)', line)
+                        if filename_match:
+                            current_filename = filename_match.group(1)
+                            yield f"data:FILENAME::{current_filename}\n\n"
+                
                 process.stdout.close()
                 process.wait()
 
@@ -82,6 +93,7 @@ def stream_download(request):
 
 @csrf_exempt
 def download_zip(request):
+
     if request.method == "POST":
         filenames = request.POST.getlist("filenames")
         zip_filename = "videos_baixados.zip"
@@ -96,3 +108,4 @@ def download_zip(request):
         return FileResponse(open(zip_path, 'rb'), as_attachment=True)
 
     return HttpResponse("Requisição inválida", status=400)
+
