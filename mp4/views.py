@@ -12,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 
 
-DOWNLOAD_PATH = os.path.join(settings.BASE_DIR, "downloads", "mp4")
+DOWNLOAD_PATH = os.path.join("/tmp", "downloads", "mp4")
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
 def home(request):
