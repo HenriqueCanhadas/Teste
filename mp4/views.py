@@ -1,22 +1,22 @@
 import os
 import json
 import re
-import subprocess
+import zipfile
 
 from django.shortcuts import render
 from django.conf import settings
 from django.http import FileResponse, HttpResponse, StreamingHttpResponse
-
-import zipfile
 from django.views.decorators.csrf import csrf_exempt
 
+from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError
 
-
+# Diretório temporário seguro para escrita na Vercel
 DOWNLOAD_PATH = os.path.join("/tmp", "downloads", "mp4")
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
 def home(request):
-    return render(request, 'mp4/index.html')  # CORRETO
+    return render(request, 'mp4/index.html')
 
 def download_file(request, filename):
     file_path = os.path.join(DOWNLOAD_PATH, filename)
@@ -41,51 +41,38 @@ def stream_download(request):
             try:
                 yield f"data:▶️ Processando: {current_url}\n\n"
 
-                info_command = ["yt-dlp", "--dump-json", current_url]
-                result = subprocess.run(info_command, capture_output=True, text=True, check=True)
-                video_info = json.loads(result.stdout)
-                title = video_info.get("title", "video")
-                height = video_info.get("height", "??")
-                safe_title = re.sub(r'[<>:"/\\|?*]', '', title)
-                output_filename = f"{safe_title} ({height}p).mp4"
-                output_path = os.path.join(DOWNLOAD_PATH, output_filename)
+                # Obter metadados
+                info_opts = {
+                    'quiet': True,
+                    'skip_download': True,
+                }
+
+                with YoutubeDL(info_opts) as ydl:
+                    info = ydl.extract_info(current_url, download=False)
+                    title = info.get('title', 'video')
+                    height = info.get('height', '??')
+                    safe_title = re.sub(r'[<>:"/\\|?*]', '', title)
+                    filename = f"{safe_title} ({height}p).mp4"
+                    output_path = os.path.join(DOWNLOAD_PATH, filename)
 
                 yield f"data:👾 Baixando {title}...\n\n"
 
-                download_command = [
-                    "yt-dlp",
-                    "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best",
-                    "--merge-output-format", "mp4",
-                    "--embed-thumbnail",
-                    "--add-metadata",
-                    "-o", output_path,
-                    current_url
-                ]
-                process = subprocess.Popen(download_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                download_opts = {
+                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
+                    'merge_output_format': 'mp4',
+                    'embed_thumbnail': True,
+                    'addmetadata': True,
+                    'outtmpl': output_path,
+                    'quiet': True,
+                }
 
-                for line in iter(process.stdout.readline, ''):
-                    line = line.strip()
-                    if "[download]" in line and "%" in line:
-                        match = re.search(r"(\d{1,3}\.\d)%", line)
-                        if match:
-                            percent = match.group(1)
-                            yield f"data:PROGRESS::{percent}\n\n"
-                    elif line.startswith("[Merger]"):
-                        yield f"data:MERGE::Iniciando junção do vídeo\n\n"
-                    elif "Destination:" in line:
-                        filename_match = re.search(r'Destination:.*\\(.+\.mp4)', line)
-                        if filename_match:
-                            current_filename = filename_match.group(1)
-                            yield f"data:FILENAME::{current_filename}\n\n"
-                
-                process.stdout.close()
-                process.wait()
+                with YoutubeDL(download_opts) as ydl:
+                    ydl.download([current_url])
 
-                if process.returncode == 0:
-                    yield f"data:DONE::{output_filename}\n\n"
-                else:
-                    yield "data:ERRO::Erro no yt-dlp\n\n"
+                yield f"data:DONE::{filename}\n\n"
 
+            except DownloadError as e:
+                yield f"data:ERRO::Erro no yt-dlp: {str(e)}\n\n"
             except Exception as e:
                 yield f"data:ERRO::Erro ao processar {current_url}: {str(e)}\n\n"
 
@@ -93,7 +80,6 @@ def stream_download(request):
 
 @csrf_exempt
 def download_zip(request):
-
     if request.method == "POST":
         filenames = request.POST.getlist("filenames")
         zip_filename = "videos_baixados.zip"
