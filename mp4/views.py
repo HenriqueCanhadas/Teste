@@ -16,7 +16,7 @@ DOWNLOAD_PATH = os.path.join(settings.BASE_DIR, "downloads", "mp4")
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
 def home(request):
-    return render(request, 'mp4\index.html')
+    return render(request, r'mp4\index.html')
 
 def download_file(request, filename):
     file_path = os.path.join(DOWNLOAD_PATH, filename)
