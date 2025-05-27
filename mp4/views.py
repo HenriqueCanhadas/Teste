@@ -31,7 +31,7 @@ def baixar_video(current_url, output_path):
         'embed_thumbnail': True,
         'addmetadata': True,
         'outtmpl': output_path,
-        'cookiefile': '/tmp/cookies.txt'  # ou ajuste se quiser usar cookies do navegador localmente
+        'cookiefile': os.path.join(os.path.dirname(__file__), '..', 'cookies.txt')  # ou ajuste se quiser usar cookies do navegador localmente
     }
 
     with YoutubeDL(ydl_opts) as ydl:
