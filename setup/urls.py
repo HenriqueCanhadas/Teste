@@ -3,5 +3,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('mp4.url')),
+    path('', include('mp4.urls')),
 ]
