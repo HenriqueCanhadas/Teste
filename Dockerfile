@@ -4,13 +4,14 @@ RUN apt-get update && \
     apt-get install -y ffmpeg && \
     apt-get clean
 
-RUN echo "Verificando arquivos no container:" && \
-    ls -R /app/templates
-    
 WORKDIR /app
 COPY . /app
 
 RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# ✅ Verificação dos arquivos copiados
+RUN echo "📁 Verificando arquivos dentro do container:" && \
+    ls -R /app/templates || echo "❌ Nenhuma pasta templates encontrada"
 
 EXPOSE 8000
 
