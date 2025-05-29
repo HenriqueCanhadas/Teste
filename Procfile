@@ -1,1 +1,1 @@
-web: gunicorn setup.wsgi --bind 0.0.0.0:8080
+web: gunicorn setup.wsgi --bind 0.0.0.0:$PORT
