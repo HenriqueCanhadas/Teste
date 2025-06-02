@@ -107,4 +107,3 @@ def download_zip(request):
         return FileResponse(open(zip_path, 'rb'), as_attachment=True)
 
     return HttpResponse("Requisição inválida", status=400)
-
